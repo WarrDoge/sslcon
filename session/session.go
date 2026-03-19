@@ -23,7 +23,7 @@ type Session struct {
 	PreMasterSecret []byte
 
 	ActiveClose bool
-	CloseChan   chan struct{} // 用于通知所有 UI，ConnSession 已关闭
+	CloseChan   chan struct{} // Notifies all UIs that the ConnSession has closed.
 	CSess       *ConnSession
 }
 
@@ -111,7 +111,7 @@ func (sess *Session) NewConnSession(header *http.Header) *ConnSession {
 	cSess.VPNMask = header.Get("X-CSTP-Netmask")
 	cSess.MTU, _ = strconv.Atoi(header.Get("X-CSTP-MTU"))
 	cSess.DNS = header.Values("X-CSTP-DNS")
-	// 如果服务器下发空字符串，字符串数组不会为 nil，会导致解析ip时报错
+	// If the server sends an empty string, the slice is non-nil and IP parsing would fail.
 	cSess.SplitInclude = header.Values("X-CSTP-Split-Include")
 	cSess.SplitExclude = header.Values("X-CSTP-Split-Exclude")
 	// debug with https://ip.900cha.com/
@@ -122,7 +122,7 @@ func (sess *Session) NewConnSession(header *http.Header) *ConnSession {
 	// https://datatracker.ietf.org/doc/html/draft-mavrogiannopoulos-openconnect-02#section-2.1.5.1
 	cSess.DTLSId = header.Get("X-DTLS-Session-ID")
 	if cSess.DTLSId == "" {
-		// 兼容最新 ocserv
+		// Compatibility with newer ocserv versions.
 		cSess.DTLSId = header.Get("X-DTLS-App-ID")
 	}
 	cSess.DTLSPort = header.Get("X-DTLS-Port")
@@ -131,7 +131,7 @@ func (sess *Session) NewConnSession(header *http.Header) *ConnSession {
 	if base.Cfg.NoDTLS {
 		cSess.DTLSCipherSuite = "Unknown"
 	} else {
-		cSess.DTLSCipherSuite = header.Get("X-DTLS12-CipherSuite") // 连接前后格式不同
+		cSess.DTLSCipherSuite = header.Get("X-DTLS12-CipherSuite") // The format differs before and after connection.
 	}
 
 	postAuth := header.Get("X-CSTP-Post-Auth-XML")
@@ -143,7 +143,8 @@ func (sess *Session) NewConnSession(header *http.Header) *ConnSession {
 				cSess.DynamicSplitIncludeDomains = strings.Split(dtd.Config.Opaque.CustomAttr.DynamicSplitIncludeDomains, ",")
 				cSess.DynamicSplitTunneling = true
 			} else if dtd.Config.Opaque.CustomAttr.DynamicSplitExcludeDomains != "" {
-				// 字符串最后多一个逗号，导致数组最后一个元素为 ""，不排除配置错误其它元素也为空的可能，go 没有直接删除容器元素的方法，这里不处理
+				// A trailing comma leaves the last element empty; other config errors may do the same.
+				// Go has no direct container element deletion here, so leave cleanup to later consumers.
 				cSess.DynamicSplitExcludeDomains = strings.Split(dtd.Config.Opaque.CustomAttr.DynamicSplitExcludeDomains, ",")
 				cSess.DynamicSplitTunneling = true
 			}
@@ -161,7 +162,7 @@ func (cSess *ConnSession) DPDTimer() {
 		}()
 		base.Debug("TLSDpdTime:", cSess.TLSDpdTime, "TLSKeepaliveTime", cSess.TLSKeepaliveTime,
 			"DTLSDpdTime", cSess.DTLSDpdTime, "DTLSKeepaliveTime", cSess.DTLSKeepaliveTime)
-		// 简化处理，最小15秒检测一次,至少5秒冗余
+		// Keep this simple: probe at least every 15 seconds, with at least 5 seconds of slack.
 		dpdTime := utils.Min(cSess.TLSDpdTime, cSess.DTLSDpdTime) - 5
 		if dpdTime < 10 {
 			dpdTime = 10
@@ -204,8 +205,8 @@ func (cSess *ConnSession) ReadDeadTimer() {
 		defer func() {
 			base.Info("read dead timer exit")
 		}()
-		// 避免每次 for 循环都重置读超时的时间
-		// 这里是绝对时间，至于链接本身，服务器没有数据时 conn.Read 会阻塞，有数据时会不断判断
+		// Avoid resetting the read deadline on every loop iteration.
+		// This is an absolute deadline; conn.Read blocks when the server is idle and resumes checking when data arrives.
 		ticker := time.NewTicker(4 * time.Second)
 		for range ticker.C {
 			select {

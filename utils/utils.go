@@ -33,8 +33,8 @@ func InArrayGeneric(arr []string, str string) bool {
 	return false
 }
 
-// SetCommonHeader 认证和建立隧道都需要的 HTTP Header
-// ocserv worker-http.c case HEADER_USER_AGENT 通过 strncasecmp() 函数比较前 n 个字符
+// SetCommonHeader sets the HTTP headers shared by auth and tunnel setup.
+// ocserv worker-http.c case HEADER_USER_AGENT compares only the first n characters via strncasecmp().
 func SetCommonHeader(req *http.Request) {
 	if base.Cfg.CiscoCompat || base.Cfg.AgentName == "" {
 		base.Cfg.AgentName = "AnyConnect"
@@ -48,7 +48,7 @@ func IpMask2CIDR(ip, mask string) string {
 	return fmt.Sprintf("%s/%v", ip, length)
 }
 
-// IpMaskToCIDR 输入 192.168.1.10/255.255.255.255 返回 192.168.1.10/32
+// IpMaskToCIDR converts 192.168.1.10/255.255.255.255 to 192.168.1.10/32.
 func IpMaskToCIDR(ipMask string) string {
 	ips := strings.Split(ipMask, "/")
 	length, _ := net.IPMask(net.ParseIP(ips[1]).To4()).Size()
@@ -112,7 +112,7 @@ func FirstUpper(s string) string {
 }
 
 func RemoveBetween(input, start, end string) string {
-	// 构建正则表达式模式，"(?s)" 包括换行符
+	// Build the regexp pattern; "(?s)" includes newlines.
 	pattern := "(?s)" + regexp.QuoteMeta(start) + ".*?" + regexp.QuoteMeta(end)
 	r := regexp.MustCompile(pattern)
 	return r.ReplaceAllString(input, "")

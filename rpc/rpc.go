@@ -38,7 +38,7 @@ type handler struct{}
 func Setup() {
 	go func() {
 		http.HandleFunc("/rpc", rpc)
-		// 无法启动则退出服务或应用，监听本地不需要有效物理网卡
+		// Exit the service or app if startup fails; listening locally does not require a working physical NIC.
 		base.Fatal(http.ListenAndServe(":6210", nil))
 	}()
 }
@@ -57,7 +57,7 @@ func rpc(resp http.ResponseWriter, req *http.Request) {
 	defer conn.Close()
 
 	jsonStream := ws.NewObjectStream(conn)
-	// 此时 base.GetBaseLogger() 仍然是 Stdout，当前使用的 rpc 库无法在连接成功后修改 logger
+	// base.GetBaseLogger() still points to stdout here; the current RPC library cannot swap loggers after connect.
 	rpcConn := jsonrpc2.NewConn(req.Context(), jsonStream, &rpcHandler, jsonrpc2.SetLogger(base.GetBaseLogger()))
 	Clients = append(Clients, rpcConn)
 	<-rpcConn.DisconnectNotify()
@@ -70,7 +70,7 @@ func rpc(resp http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// Handle ID 即方法
+// Handle routes requests by numeric ID.
 func (_ *handler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -78,10 +78,10 @@ func (_ *handler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2
 		}
 	}()
 
-	// request route
+	// Request routing.
 	switch req.ID.Num {
 	case STAT:
-		// 未连接之前不应该调用这里
+		// This should not be called before a connection exists.
 		if session.Sess.CSess != nil {
 			_ = conn.Reply(ctx, req.ID, session.Sess.CSess.Stat)
 			return
@@ -89,10 +89,10 @@ func (_ *handler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2
 		jError := jsonrpc2.Error{Code: 1, Message: disconnectedStr}
 		_ = conn.ReplyWithError(ctx, req.ID, &jError)
 	case STATUS:
-		// 未连接之前不应该调用这里
+		// This should not be called before a connection exists.
 		if session.Sess.CSess != nil {
 			if !base.Cfg.NoDTLS && session.Sess.CSess.DTLSPort != "" {
-				// 等待 DTLS 隧道创建过程结束，无论隧道是否建立成功
+				// Wait for DTLS setup to finish, whether it succeeds or fails.
 				<-session.Sess.CSess.DtlsSetupChan
 			}
 
@@ -105,7 +105,7 @@ func (_ *handler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2
 		jError := jsonrpc2.Error{Code: 1, Message: disconnectedStr}
 		_ = conn.ReplyWithError(ctx, req.ID, &jError)
 	case CONNECT:
-		// 启动时未连接，其它 UI 连接后再次调用
+		// Not connected yet at startup, or called again after another UI connects.
 		if session.Sess.CSess != nil {
 			_ = conn.Reply(ctx, req.ID, connectedStr)
 			return
@@ -129,7 +129,7 @@ func (_ *handler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2
 		_ = conn.Reply(ctx, req.ID, connectedStr)
 		go monitor()
 	case RECONNECT:
-		// UI 未检测到活动网络发生变化或者网络变化后已经推送接口信息
+		// The UI either did not detect a network change, or already pushed updated interface info after the change.
 		if session.Sess.CSess != nil {
 			_ = conn.Reply(ctx, req.ID, connectedStr)
 			return
@@ -152,7 +152,7 @@ func (_ *handler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2
 			_ = conn.ReplyWithError(ctx, req.ID, &jError)
 		}
 	case CONFIG:
-		// 初始化配置
+		// Initialize config.
 		err := json.Unmarshal(*req.Params, &base.Cfg)
 		if err != nil {
 			jError := jsonrpc2.Error{Code: 1, Message: err.Error()}
@@ -160,7 +160,7 @@ func (_ *handler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2
 			return
 		}
 		_ = conn.Reply(ctx, req.ID, "ready to connect")
-		// 每次重启客户端或者配置更改，重置 logger
+		// Reset the logger after each client restart or config change.
 		base.InitLog()
 	case INTERFACE:
 		err := json.Unmarshal(*req.Params, base.LocalInterface)
@@ -179,7 +179,7 @@ func (_ *handler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2
 }
 
 func monitor() {
-	// 不考虑 DTLS 中途关闭情形
+	// Mid-session DTLS teardown is not handled here.
 	<-session.Sess.CloseChan
 	ctx := context.Background()
 	for _, conn := range Clients {

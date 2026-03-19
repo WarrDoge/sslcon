@@ -1,7 +1,7 @@
 package proto
 
 // packet = header + Data，The whole packet in encapsulated in a TLS record (see [RFC8446])
-// 只用于 tls 数据包，dtls 数据包只有第 6 个字节
+// Used only for TLS packets; DTLS packets only use the sixth byte.
 
 var Header = []byte{
 	0x53, 0x54, 0x46, 0x01, // fixed to 0x53 (S) 0x54 (T) 0x46 (F) 0x01
@@ -10,7 +10,7 @@ var Header = []byte{
 	0x00, // fixed to 0x00
 }
 
-// Payload 缓冲区数据结构
+// Payload is the packet buffer structure.
 type Payload struct {
 	Type byte // The available payload types
 	Data []byte

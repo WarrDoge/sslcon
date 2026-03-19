@@ -40,7 +40,7 @@ func CreateTUN(ifname string, mtu int) (Device, error) {
 	wt, err := wintun.CreateAdapter(ifname,
 		wintun.TunType(WintunTunnelType),
 		wintun.Guid(WintunStaticRequestedGUID),
-		wintun.RingBuff(0x800000)) // 8 MiB, 5个 0 为 1 MiB
+		wintun.RingBuff(0x800000)) // 8 MiB; five zeros equals 1 MiB
 
 	tun := &NativeTun{
 		wt:   wt,

@@ -50,19 +50,28 @@ func SetRoutes(cSess *session.ConnSession) error {
 		}
 	}
 
-	// 如果包含路由为空必为全局路由，如果使用包含域名，则包含路由必须填写一个，如 dns 地址
-	if len(cSess.SplitInclude) == 0 {
-		cSess.SplitInclude = append(cSess.SplitInclude, "0.0.0.0/0.0.0.0")
+	splitInclude := cSess.SplitInclude
+	if len(base.Cfg.SplitRoutes) > 0 {
+		splitInclude = append([]string(nil), base.Cfg.SplitRoutes...)
+	}
 
-		// 全局模式，重置默认路由优先级，如 OpenWrt 默认优先级为 0
+	if len(splitInclude) == 0 {
+		splitInclude = append(splitInclude, "0.0.0.0/0.0.0.0")
+
+		// Full-tunnel mode: reset the default route priority, for example OpenWrt often defaults to priority 0.
 		zero, _ := netlink.ParseIPNet("0.0.0.0/0")
 		delAllRoute(&netlink.Route{LinkIndex: localInterfaceIndex, Dst: zero})
 		_ = netlink.RouteAdd(&netlink.Route{LinkIndex: localInterfaceIndex, Dst: zero, Gw: gateway, Priority: 10})
 	}
+	cSess.SplitInclude = splitInclude
 
-	// 如果使用域名包含，原则上不支持在顶级域名匹配中排除某个具体域名的 IP
-	for _, ipMask := range cSess.SplitInclude {
-		dst, _ = netlink.ParseIPNet(utils.IpMaskToCIDR(ipMask))
+	// With domain-based includes, excluding the IP of a specific subdomain from a top-level domain match is not supported.
+	for _, routeSpec := range cSess.SplitInclude {
+		cidr, routeErr := routeToCIDR(routeSpec)
+		if routeErr != nil {
+			return routeErr
+		}
+		dst, _ = netlink.ParseIPNet(cidr)
 		route = netlink.Route{LinkIndex: ifaceIndex, Dst: dst, Priority: 6}
 		err = netlink.RouteAdd(&route)
 		if err != nil {
@@ -72,10 +81,14 @@ func SetRoutes(cSess *session.ConnSession) error {
 		}
 	}
 
-	// 支持在 SplitInclude 网段中排除某个路由
+	// Allow a route to be excluded even if it falls within SplitInclude.
 	if len(cSess.SplitExclude) > 0 {
-		for _, ipMask := range cSess.SplitExclude {
-			dst, _ = netlink.ParseIPNet(utils.IpMaskToCIDR(ipMask))
+		for _, routeSpec := range cSess.SplitExclude {
+			cidr, routeErr := routeToCIDR(routeSpec)
+			if routeErr != nil {
+				return routeErr
+			}
+			dst, _ = netlink.ParseIPNet(cidr)
 			route = netlink.Route{LinkIndex: localInterfaceIndex, Dst: dst, Gw: gateway, Priority: 5}
 			err = netlink.RouteAdd(&route)
 			if err != nil {
@@ -99,7 +112,7 @@ func ResetRoutes(cSess *session.ConnSession) {
 
 	for _, ipMask := range cSess.SplitInclude {
 		if ipMask == "0.0.0.0/0.0.0.0" {
-			// 重置默认路由优先级
+			// Restore the default route priority.
 			zero, _ := netlink.ParseIPNet("0.0.0.0/0")
 			gateway := net.ParseIP(base.LocalInterface.Gateway)
 			_ = netlink.RouteDel(&netlink.Route{LinkIndex: localInterfaceIndex, Dst: zero})
@@ -112,8 +125,12 @@ func ResetRoutes(cSess *session.ConnSession) {
 	_ = netlink.RouteDel(&netlink.Route{LinkIndex: localInterfaceIndex, Dst: dst})
 
 	if len(cSess.SplitExclude) > 0 {
-		for _, ipMask := range cSess.SplitExclude {
-			dst, _ = netlink.ParseIPNet(utils.IpMaskToCIDR(ipMask))
+		for _, routeSpec := range cSess.SplitExclude {
+			cidr, err := routeToCIDR(routeSpec)
+			if err != nil {
+				continue
+			}
+			dst, _ = netlink.ParseIPNet(cidr)
 			_ = netlink.RouteDel(&netlink.Route{LinkIndex: localInterfaceIndex, Dst: dst})
 		}
 	}
@@ -192,12 +209,12 @@ func routingError(dst *net.IPNet, err error) error {
 func setDNS(cSess *session.ConnSession) {
 	// dns
 	if len(cSess.DNS) > 0 {
-		// 使用动态域名路由时 DNS 一定走 VPN 才能进行流量分析
+		// DNS must go through the VPN when using dynamic domain routes so the traffic can be inspected.
 		if len(cSess.DynamicSplitIncludeDomains) > 0 {
 			DynamicAddIncludeRoutes(cSess.DNS)
 		}
 
-		// 部分云服务器会在设置路由时重写 /etc/resolv.conf，延迟两秒再设置
+		// Some cloud systems rewrite /etc/resolv.conf while routes are being configured, so delay for two seconds.
 		go func() {
 			utils.CopyFile("/tmp/resolv.conf.bak", "/etc/resolv.conf")
 
@@ -205,8 +222,12 @@ func setDNS(cSess *session.ConnSession) {
 			for _, dns := range cSess.DNS {
 				dnsString += fmt.Sprintf("nameserver %s\n", dns)
 			}
+			domains := NormalizeDNSDomains(base.Cfg.DNSDomains)
+			if len(domains) > 0 {
+				dnsString += "search " + strings.Join(domains, " ") + "\n"
+			}
 			time.Sleep(2 * time.Second)
-			// OpenWrt 会将 127.0.0.1 写在最下面，影响其上面的解析
+			// OpenWrt may append 127.0.0.1 at the bottom, which affects resolution for entries above it.
 			err := utils.NewRecord("/etc/resolv.conf").Write(dnsString, false)
 			if err != nil {
 				base.Error("set DNS failed")
@@ -217,7 +238,7 @@ func setDNS(cSess *session.ConnSession) {
 
 func restoreDNS(cSess *session.ConnSession) {
 	// dns
-	// 软件崩溃会导致无法恢复 resolv.conf 从而无法上网，需要重启系统
+	// If the process crashes, resolv.conf may not be restored and networking can remain broken until reboot.
 	if len(cSess.DNS) > 0 {
 		utils.CopyFile("/etc/resolv.conf", "/tmp/resolv.conf.bak")
 	}

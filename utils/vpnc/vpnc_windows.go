@@ -52,7 +52,7 @@ func SetRoutes(cSess *session.ConnSession) error {
 		}
 	}
 
-	// Windows 排除路由 metric 相对大小好像不起作用，但不影响效果
+	// On Windows, exclude-route metric ordering does not appear to matter, but behavior is still correct.
 	if len(cSess.SplitInclude) == 0 {
 		cSess.SplitInclude = append(cSess.SplitInclude, "0.0.0.0/0.0.0.0")
 	}

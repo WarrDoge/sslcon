@@ -1,13 +1,13 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="go build vpnagent.go.exe" type="GoApplicationRunConfiguration" factoryName="Go Application">
+  <configuration default="false" name="go build cmd/vpnagent.exe" type="GoApplicationRunConfiguration" factoryName="Go Application">
     <module name="sslcon" />
     <working_directory value="$PROJECT_DIR$" />
     <go_parameters value="-o vpnagent.exe" />
     <sudo value="true" />
-    <kind value="FILE" />
-    <package value="sslcon" />
-    <directory value="$PROJECT_DIR$" />
-    <filePath value="$PROJECT_DIR$/vpnagent.go" />
+    <kind value="DIRECTORY" />
+    <package value="main" />
+    <directory value="$PROJECT_DIR$/cmd/vpnagent" />
+    <filePath value="$PROJECT_DIR$/cmd/vpnagent/main.go" />
     <method v="2" />
   </configuration>
 </component>

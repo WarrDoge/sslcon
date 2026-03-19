@@ -28,7 +28,7 @@ func SetRoutes(cSess *session.ConnSession) error {
 	if err != nil {
 		return err
 	}
-	// 默认路由通过 DNS 设置
+	// The default route is driven through DNS configuration.
 	if len(cSess.SplitInclude) != 0 {
 		for _, ipMask := range cSess.SplitInclude {
 			dst := utils.IpMaskToCIDR(ipMask)
@@ -169,7 +169,8 @@ func setDNS(cSess *session.ConnSession) error {
 	}
 
 	var override string
-	// 如果包含路由为空必为全局路由，如果使用包含域名，则包含路由必须填写一个，如 dns 地址
+	// An empty include list means full-tunnel mode.
+	// If domain-based include routing is used, at least one include route must still be present, such as a DNS server.
 	if len(cSess.SplitInclude) == 0 {
 		override = "d.add OverridePrimary # 1"
 	}
@@ -194,7 +195,7 @@ func setDNS(cSess *session.ConnSession) error {
 	cmd := exec.Command("scutil")
 	cmd.Stdin = strings.NewReader(command)
 
-	// 执行命令并获取输出
+	// Execute the command and capture its output.
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		base.Error(err, output)
@@ -213,7 +214,7 @@ func restoreDNS(cSess *session.ConnSession) {
 	cmd := exec.Command("scutil")
 	cmd.Stdin = strings.NewReader(command)
 
-	// 执行命令并获取输出
+	// Execute the command and capture its output.
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		base.Error(err, output)

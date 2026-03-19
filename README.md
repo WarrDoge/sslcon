@@ -17,6 +17,13 @@ Currently the following servers are supported,
 
 ## CLI
 
+Build the binaries from the dedicated entrypoints:
+
+```sh
+go build -o sslcon ./cmd/sslcon
+go build -o vpnagent ./cmd/vpnagent
+```
+
 ```
 $ ./sslcon
 A CLI application that supports the OpenConnect SSL VPN protocol.
@@ -40,6 +47,7 @@ Use "sslcon [command] --help" for more information about a command.
 ### install
 
 ```shell
+go build -o vpnagent ./cmd/vpnagent
 sudo ./vpnagent install
 # uninstall
 sudo ./vpnagent uninstall
@@ -60,6 +68,7 @@ the installed service on OpenWrt
 ### connect
 
 ```bash
+go build -o sslcon ./cmd/sslcon
 ./sslcon connect -s test.com -u vpn -g default -k key
 ```
 

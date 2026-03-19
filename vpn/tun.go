@@ -36,7 +36,7 @@ func setupTun(cSess *session.ConnSession) error {
 	base.Debug("tun device:", cSess.TunName)
 	tun.NativeTunDevice = dev.(*tun.NativeTun)
 
-	// 不可并行
+	// Must remain serialized.
 	err = vpnc.ConfigInterface(cSess)
 	if err != nil {
 		_ = dev.Close()
@@ -49,10 +49,11 @@ func setupTun(cSess *session.ConnSession) error {
 }
 
 // Step 3
-// 网络栈将应用数据包转给 tun 后，该函数从 tun 读取数据包，放入 cSess.PayloadOutTLS 或 cSess.PayloadOutDTLS
-// 之后由 payloadOutTLSToServer 或 payloadOutDTLSToServer 调整格式，发送给服务端
+// After the network stack sends an app packet to the TUN device, this function reads it
+// and forwards it to cSess.PayloadOutTLS or cSess.PayloadOutDTLS.
+// payloadOutTLSToServer or payloadOutDTLSToServer then reframes it and sends it to the server.
 func tunToPayloadOut(dev tun.Device, cSess *session.ConnSession) {
-	// tun 设备读错误
+	// TUN read error.
 	defer func() {
 		base.Info("tun to payloadOut exit")
 		_ = dev.Close()
@@ -63,16 +64,16 @@ func tunToPayloadOut(dev tun.Device, cSess *session.ConnSession) {
 	)
 
 	for {
-		// 从池子申请一块内存，存放到 PayloadOutTLS 或 PayloadOutDTLS，在 payloadOutTLSToServer 或 payloadOutDTLSToServer 中释放
-		// 由 payloadOutTLSToServer 或 payloadOutDTLSToServer 添加 header 后发送出去
+		// Take a buffer from the pool and hand it off to the outbound TLS or DTLS path,
+		// where it is reframed and eventually returned to the pool.
 		pl := getPayloadBuffer()
-		n, err = dev.Read(pl.Data, offset) // 如果 tun 没有 up，会在这等待
+		n, err = dev.Read(pl.Data, offset) // Waits here if the TUN device is not up.
 		if err != nil {
 			base.Error("tun to payloadOut error:", err)
 			return
 		}
 
-		// 更新数据长度
+		// Trim to the bytes that were actually read.
 		pl.Data = (pl.Data)[offset : offset+n]
 
 		// base.Debug("tunToPayloadOut")
@@ -100,16 +101,17 @@ func tunToPayloadOut(dev tun.Device, cSess *session.ConnSession) {
 }
 
 // Step 22
-// 读取 tlsChannel、dtlsChannel 放入 cSess.PayloadIn 的数据包（由服务端返回，已调整格式），写入 tun，网络栈交给应用
+// Read normalized packets from cSess.PayloadIn, write them to the TUN device,
+// and let the local network stack deliver them to applications.
 func payloadInToTun(dev tun.Device, cSess *session.ConnSession) {
-	// tun 设备写错误或者cSess.CloseChan
+	// Exit on TUN write error or cSess.CloseChan.
 	defer func() {
 		base.Info("payloadIn to tun exit")
 		if !cSess.Sess.ActiveClose {
-			vpnc.ResetRoutes(cSess) // 如果 tun 没有创建成功，也不会调用 SetRoutes
+			vpnc.ResetRoutes(cSess) // If TUN setup never succeeded, SetRoutes was never called either.
 		}
-		// 可能由写错误触发，和 tunToPayloadOut 一起，只要有一处确保退出 cSess 即可，否则 tls 不会退出
-		// 如果由外部触发，cSess.Close() 因为使用 sync.Once，所以没影响
+		// This may be triggered by a write error. Together with tunToPayloadOut, one side must ensure cSess exits,
+		// otherwise TLS will not stop. If shutdown was triggered elsewhere, sync.Once makes cSess.Close() harmless.
 		cSess.Close()
 		_ = dev.Close()
 	}()
@@ -126,7 +128,7 @@ func payloadInToTun(dev tun.Device, cSess *session.ConnSession) {
 			return
 		}
 
-		// 只有当使用域名分流且返回数据包为 DNS 时才进一步分析，少建几个协程
+		// Only inspect DNS responses when domain-based split tunneling is enabled, to avoid unnecessary goroutines.
 		if cSess.DynamicSplitTunneling {
 			_, srcPort, _, _ := utils.ResolvePacket(pl.Data)
 			if srcPort == 53 {
@@ -154,7 +156,7 @@ func payloadInToTun(dev tun.Device, cSess *session.ConnSession) {
 			return
 		}
 
-		// 释放由 serverToPayloadIn 申请的内存
+		// Return the buffer allocated by the server-to-payload path.
 		putPayloadBuffer(pl)
 	}
 }
@@ -169,7 +171,7 @@ func dynamicSplitRoutes(data []byte, cSess *session.ConnSession) {
 		// base.Debug("Query:", query)
 
 		if utils.InArrayGeneric(cSess.DynamicSplitIncludeDomains, query) {
-			// 分析流量后才知道请求的域名，即使已经设置路由，仍然需要分析流量，不可避免的 overhead
+			// The queried domain is only known after inspecting traffic, so this analysis remains necessary even after routes exist.
 			if _, ok := cSess.DynamicSplitIncludeResolved.Load(query); !ok && dns.ANCount > 0 {
 				var answers []string
 				for _, v := range dns.Answers {

@@ -4,13 +4,56 @@ import (
 	"strings"
 
 	"sslcon/auth"
+	"sslcon/base"
+	"sslcon/lib"
 	"sslcon/session"
 	"sslcon/utils/vpnc"
 	"sslcon/vpn"
 )
 
-// Connect 调用之前必须由前端填充 auth.Prof，建议填充 base.Interface
-func Connect() error {
+func activateContext(ctx *lib.VPNContext) {
+	if ctx == nil {
+		return
+	}
+	if ctx.Cfg == nil {
+		ctx.Cfg = base.NewClientConfig()
+	}
+	if ctx.LocalInterface == nil {
+		ctx.LocalInterface = base.NewInterface()
+	}
+	if ctx.Profile == nil {
+		ctx.Profile = lib.NewProfile()
+	}
+	if ctx.Session == nil {
+		ctx.Session = &session.Session{}
+	}
+	if ctx.Auth == nil {
+		ctx.Auth = lib.NewAuthState()
+	}
+	if ctx.Logger == nil {
+		ctx.Logger = base.NewLogger(ctx.Cfg)
+	}
+
+	base.Cfg = ctx.Cfg
+	base.LocalInterface = ctx.LocalInterface
+	base.SetDefaultLogger(ctx.Logger)
+	auth.Prof = ctx.Profile
+	auth.State = ctx.Auth
+	if ctx.TLSCert != nil || ctx.RootCAs != nil {
+		if ctx.TLSCert != nil {
+			auth.SetTLSCredentials(ctx, *ctx.TLSCert, ctx.RootCAs)
+		}
+	} else {
+		auth.ClearTLSCredentials(ctx)
+	}
+	session.Sess = ctx.Session
+}
+
+// Connect requires the frontend to populate auth.Prof first; providing base.Interface is recommended.
+func Connect(ctxs ...*lib.VPNContext) error {
+	if len(ctxs) > 0 {
+		activateContext(ctxs[0])
+	}
 	if strings.Contains(auth.Prof.Host, ":") {
 		auth.Prof.HostWithPort = auth.Prof.Host
 	} else {
@@ -34,10 +77,14 @@ func Connect() error {
 	return SetupTunnel(false)
 }
 
-// SetupTunnel 操作系统长时间睡眠后再自动连接会失败，仅用于短时间断线自动重连
-func SetupTunnel(reconnect bool) error {
-	// 为适应复杂网络环境，必须能够感知网卡变化，建议由前端获取当前网络信息发送过来，而不是登陆前由 Go 处理
-	// 断网重连时网卡信息可能已经变化，所以建立隧道时重新获取网卡信息
+// SetupTunnel is only meant for short reconnects; reconnecting after long OS sleep may fail.
+func SetupTunnel(reconnect bool, ctxs ...*lib.VPNContext) error {
+	if len(ctxs) > 0 {
+		activateContext(ctxs[0])
+	}
+	// Complex networks require NIC change awareness; it is better for the frontend to push current network info
+	// instead of relying only on Go-side detection before login.
+	// Interface details may change before reconnect, so refresh them when rebuilding the tunnel.
 	if reconnect && !auth.Prof.Initialized {
 		err := vpnc.GetLocalInterface()
 		if err != nil {
@@ -47,11 +94,14 @@ func SetupTunnel(reconnect bool) error {
 	return vpn.SetupTunnel()
 }
 
-// DisConnect 主动断开或者 ctrl+c，不包括网络或tun异常退出
-func DisConnect() {
+// DisConnect handles intentional disconnects such as user actions or Ctrl+C, not network or TUN failures.
+func DisConnect(ctxs ...*lib.VPNContext) {
+	if len(ctxs) > 0 {
+		activateContext(ctxs[0])
+	}
 	session.Sess.ActiveClose = true
 	if session.Sess.CSess != nil {
-		vpnc.ResetRoutes(session.Sess.CSess) // 蛋疼的循环引用
+		vpnc.ResetRoutes(session.Sess.CSess) // Keeps the existing circular dependency intact.
 		session.Sess.CSess.Close()
 	}
 }

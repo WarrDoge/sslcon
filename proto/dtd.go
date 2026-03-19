@@ -2,20 +2,23 @@ package proto
 
 import "encoding/xml"
 
-// DTD 基于 XML 的客户端、服务端请求和响应数据结构
+// DTD defines the XML request and response structures used by the client and server.
 // https://datatracker.ietf.org/doc/html/draft-mavrogiannopoulos-openconnect-03#appendix-C.1
 type DTD struct {
 	XMLName              xml.Name       `xml:"config-auth"`
-	Client               string         `xml:"client,attr"`                 // 一般都是 vpn
-	Type                 string         `xml:"type,attr"`                   // 请求类型 init logout auth-reply
-	AggregateAuthVersion string         `xml:"aggregate-auth-version,attr"` // 一般都是 2
-	Version              string         `xml:"version"`                     // 客户端版本号
-	GroupAccess          string         `xml:"group-access"`                // 请求的地址
-	GroupSelect          string         `xml:"group-select"`                // 选择的组名
+	Client               string         `xml:"client,attr"`                 // usually "vpn"
+	Type                 string         `xml:"type,attr"`                   // request type: init, logout, auth-reply
+	AggregateAuthVersion string         `xml:"aggregate-auth-version,attr"` // usually 2
+	Version              string         `xml:"version"`                     // client version
+	GroupAccess          string         `xml:"group-access"`                // requested address
+	GroupSelect          string         `xml:"group-select"`                // selected group name
+	ClientCertRequest    *struct{}      `xml:"client-cert-request"`
 	SessionToken         string         `xml:"session-token"`
+	Error                authError      `xml:"error"`
 	Auth                 auth           `xml:"auth"`
 	DeviceId             deviceId       `xml:"device-id"`
 	Opaque               opaque         `xml:"opaque"`
+	Capabilities         capabilities   `xml:"capabilities"`
 	MacAddressList       macAddressList `xml:"mac-address-list"`
 	Config               config         `xml:"config"`
 }
@@ -35,7 +38,9 @@ type form struct {
 }
 
 type authError struct {
+	ID     string `xml:"id,attr"`
 	Param1 string `xml:"param1,attr"`
+	Param2 string `xml:"param2,attr"`
 	Value  string `xml:",chardata"`
 }
 
@@ -49,8 +54,13 @@ type deviceId struct {
 
 type opaque struct {
 	TunnelGroup string `xml:"tunnel-group"`
+	AuthMethod  string `xml:"auth-method"`
 	GroupAlias  string `xml:"group-alias"`
 	ConfigHash  string `xml:"config-hash"`
+}
+
+type capabilities struct {
+	AuthMethods []string `xml:"auth-method"`
 }
 
 type macAddressList struct {

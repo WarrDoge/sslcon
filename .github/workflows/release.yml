@@ -63,29 +63,29 @@ jobs:
       shell: bash
       run: |
         if [ "${{ matrix.build }}" = "linux" ]; then
-          go build -trimpath -ldflags "-s -w" -o vpnagent vpnagent.go
-          go build -trimpath -ldflags "-s -w" -o sslcon sslcon.go
+          go build -trimpath -ldflags "-s -w" -o vpnagent ./cmd/vpnagent
+          go build -trimpath -ldflags "-s -w" -o sslcon ./cmd/sslcon
         elif [ "${{ matrix.build }}" = "linux-arm64" ]; then
-          go build -trimpath -ldflags "-s -w" -o vpnagent vpnagent.go
-          go build -trimpath -ldflags "-s -w" -o sslcon sslcon.go
+          go build -trimpath -ldflags "-s -w" -o vpnagent ./cmd/vpnagent
+          go build -trimpath -ldflags "-s -w" -o sslcon ./cmd/sslcon
         elif [ "${{ matrix.build }}" = "linux-armv7" ]; then
-          GOARM=7 GOARCH=arm go build -trimpath -ldflags "-s -w" -o vpnagent vpnagent.go
-          GOARM=7 GOARCH=arm go build -trimpath -ldflags "-s -w" -o sslcon sslcon.go
+          GOARM=7 GOARCH=arm go build -trimpath -ldflags "-s -w" -o vpnagent ./cmd/vpnagent
+          GOARM=7 GOARCH=arm go build -trimpath -ldflags "-s -w" -o sslcon ./cmd/sslcon
         elif [ "${{ matrix.build }}" = "linux-riscv64" ]; then
-          GOARCH=riscv64 go build -trimpath -ldflags "-s -w" -o vpnagent vpnagent.go
-          GOARCH=riscv64 go build -trimpath -ldflags "-s -w" -o sslcon sslcon.go
+          GOARCH=riscv64 go build -trimpath -ldflags "-s -w" -o vpnagent ./cmd/vpnagent
+          GOARCH=riscv64 go build -trimpath -ldflags "-s -w" -o sslcon ./cmd/sslcon
         elif [ "${{ matrix.build }}" = "linux-mipsle" ]; then
-          GOARCH=mipsle go build -trimpath -ldflags "-s -w" -o vpnagent vpnagent.go
-          GOARCH=mipsle go build -trimpath -ldflags "-s -w" -o sslcon sslcon.go
+          GOARCH=mipsle go build -trimpath -ldflags "-s -w" -o vpnagent ./cmd/vpnagent
+          GOARCH=mipsle go build -trimpath -ldflags "-s -w" -o sslcon ./cmd/sslcon
         elif [ "${{ matrix.build }}" = "windows" ]; then
-          go build -trimpath -ldflags "-s -w" -o vpnagent.exe vpnagent.go
-          go build -trimpath -ldflags "-s -w" -o sslcon.exe sslcon.go
+          go build -trimpath -ldflags "-s -w" -o vpnagent.exe ./cmd/vpnagent
+          go build -trimpath -ldflags "-s -w" -o sslcon.exe ./cmd/sslcon
         elif [ "${{ matrix.build }}" = "windows-arm64" ]; then
-          go build -trimpath -ldflags "-s -w" -o vpnagent.exe vpnagent.go
-          go build -trimpath -ldflags "-s -w" -o sslcon.exe sslcon.go
+          go build -trimpath -ldflags "-s -w" -o vpnagent.exe ./cmd/vpnagent
+          go build -trimpath -ldflags "-s -w" -o sslcon.exe ./cmd/sslcon
         elif [ "${{ matrix.build }}" = "macos-arm64" ]; then
-          go build -trimpath -ldflags "-s -w" -o vpnagent vpnagent.go
-          go build -trimpath -ldflags "-s -w" -o sslcon sslcon.go
+          go build -trimpath -ldflags "-s -w" -o vpnagent ./cmd/vpnagent
+          go build -trimpath -ldflags "-s -w" -o sslcon ./cmd/sslcon
         fi
     - name: Build archive
       shell: bash

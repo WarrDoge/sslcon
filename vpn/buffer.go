@@ -8,7 +8,7 @@ import (
 
 const BufferSize = 2048
 
-// pool 实际数据缓冲区，缓冲区的容量由 golang 自动控制，PayloadIn 等通道只是个内存地址列表
+// pool stores the actual payload buffers; Go manages the backing capacity, and channels such as PayloadIn only carry pointers.
 var pool = sync.Pool{
 	New: func() interface{} {
 		b := make([]byte, BufferSize)
@@ -26,7 +26,7 @@ func getPayloadBuffer() *proto.Payload {
 }
 
 func putPayloadBuffer(pl *proto.Payload) {
-	// DPD-REQ、KEEPALIVE 等数据
+	// Control packets such as DPD-REQ and KEEPALIVE.
 	if cap(pl.Data) != BufferSize {
 		// base.Debug("payload is:", pl.Data)
 		return

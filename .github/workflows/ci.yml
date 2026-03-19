@@ -32,12 +32,12 @@ jobs:
       shell: bash
       run: |
         if [[ "${{ matrix.os }}" == ubuntu* ]]; then
-          go build -trimpath -ldflags "-s -w" -o vpnagent vpnagent.go
-          go build -trimpath -ldflags "-s -w" -o sslcon sslcon.go
+          go build -trimpath -ldflags "-s -w" -o vpnagent ./cmd/vpnagent
+          go build -trimpath -ldflags "-s -w" -o sslcon ./cmd/sslcon
         elif [[ "${{ matrix.os }}" == windows* ]]; then
-          go build -trimpath -ldflags "-s -w" -o vpnagent.exe vpnagent.go
-          go build -trimpath -ldflags "-s -w" -o sslcon.exe sslcon.go
+          go build -trimpath -ldflags "-s -w" -o vpnagent.exe ./cmd/vpnagent
+          go build -trimpath -ldflags "-s -w" -o sslcon.exe ./cmd/sslcon
         elif [[ "${{ matrix.os }}" == macos* ]]; then
-          go build -trimpath -ldflags "-s -w" -o vpnagent vpnagent.go
-          go build -trimpath -ldflags "-s -w" -o sslcon sslcon.go
+          go build -trimpath -ldflags "-s -w" -o vpnagent ./cmd/vpnagent
+          go build -trimpath -ldflags "-s -w" -o sslcon ./cmd/sslcon
         fi

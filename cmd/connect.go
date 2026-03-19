@@ -25,7 +25,7 @@ var (
 var connect = &cobra.Command{
 	Use:   "connect",
 	Short: "Connect to the VPN server",
-	// Args:  cobra.MinimumNArgs(1), // 至少1个非选项参数
+	// Args:  cobra.MinimumNArgs(1), // require at least one positional argument
 	Run: func(cmd *cobra.Command, args []string) {
 		if host == "" || username == "" {
 			cmd.Help()
@@ -73,10 +73,10 @@ var connect = &cobra.Command{
 }
 
 func init() {
-	// 子命令自己被编译、添加到主命令当中
+	// Subcommands are compiled separately and attached to the root command.
 	rootCmd.AddCommand(connect)
 
-	// 将 Flag 解析到全局变量
+	// Bind flags into global variables.
 	connect.Flags().StringVarP(&host, "server", "s", "", "VPN server")
 	connect.Flags().StringVarP(&username, "username", "u", "", "User name")
 	connect.Flags().StringVarP(&password, "password", "p", "", "User password")

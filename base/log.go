@@ -4,12 +4,11 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
+	"sync"
 )
 
-// 相当于枚举，只有小于设置级别的日志才会输出，不区分大小写
-// Debug < Info < Warn < Error < Fatal
 const (
 	_Debug = iota
 	_Info
@@ -19,125 +18,236 @@ const (
 )
 
 var (
-	baseWriter *logWriter
-	baseLogger *log.Logger
-	baseLevel  int
-	levels     map[int]string
-
-	logName = "vpnagent.log"
+	defaultLogger   *Logger
+	defaultLoggerMu sync.RWMutex
+	logName         = "vpnagent.log"
 )
 
 type logWriter struct {
 	UseStdout bool
 	FileName  string
 	File      *os.File
-	NowDate   string
 }
 
-// 由 initLog() 中的 log.New 注册调用
+type Logger struct {
+	normalWriter *logWriter
+	debugWriter  *logWriter
+	normalLogger *log.Logger
+	debugLogger  *log.Logger
+	baseLevel    int
+	levels       map[int]string
+}
+
 func (lw *logWriter) Write(p []byte) (n int, err error) {
 	return lw.File.Write(p)
 }
 
-// 创建新文件
 func (lw *logWriter) newFile() {
-	if lw.UseStdout {
+	if lw.UseStdout || strings.TrimSpace(lw.FileName) == "" {
 		lw.File = os.Stdout
 		return
 	}
-	if Cfg.LogPath != "" {
-		err := os.MkdirAll(Cfg.LogPath, os.ModePerm)
-		if err != nil {
-			lw.File = os.Stdout
-			Error(err)
-			return
-		}
+	if err := os.MkdirAll(filepath.Dir(lw.FileName), 0o755); err != nil {
+		lw.File = os.Stdout
+		_, _ = os.Stderr.WriteString(err.Error() + "\n")
+		return
 	}
-	// 客户端不需要内容追加，每次重启客户端或者配置更改重新生成干净日志，即使 root 权限，os.OpenFile 也不能打开其它用户文件，但能删除！
 	_ = os.Remove(lw.FileName)
-	f, err := os.OpenFile(lw.FileName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+	f, err := os.OpenFile(lw.FileName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 	if err != nil {
 		lw.File = os.Stdout
-		Error(err)
+		_, _ = os.Stderr.WriteString(err.Error() + "\n")
 		return
 	}
 	lw.File = f
 }
 
-func InitLog() {
-	// 初始化 baseLogger
-	baseWriter = &logWriter{
-		UseStdout: Cfg.LogPath == "",
-		FileName:  path.Join(Cfg.LogPath, logName),
+func NewLogger(cfg *ClientConfig) *Logger {
+	if cfg == nil {
+		cfg = NewClientConfig()
 	}
-	baseWriter.newFile()
-	baseLevel = logLevel2Int(Cfg.LogLevel)
-	baseLogger = log.New(baseWriter, "", log.LstdFlags|log.Lshortfile)
+
+	normalWriter := &logWriter{
+		UseStdout: strings.TrimSpace(cfg.LogPath) == "",
+		FileName:  filepath.Join(cfg.LogPath, logName),
+	}
+	normalWriter.newFile()
+
+	debugWriter := normalWriter
+	if strings.TrimSpace(cfg.DebugLogPath) != "" {
+		debugWriter = &logWriter{UseStdout: false, FileName: cfg.DebugLogPath}
+		debugWriter.newFile()
+	}
+
+	logger := &Logger{
+		normalWriter: normalWriter,
+		debugWriter:  debugWriter,
+		baseLevel:    logLevel2Int(cfg.LogLevel),
+		levels: map[int]string{
+			_Debug: "Debug",
+			_Info:  "Info",
+			_Warn:  "Warn",
+			_Error: "Error",
+			_Fatal: "Fatal",
+		},
+	}
+	logger.normalLogger = log.New(normalWriter, "", log.LstdFlags)
+	logger.debugLogger = log.New(debugWriter, "", log.LstdFlags)
+	return logger
+}
+
+func InitLog(cfgs ...*ClientConfig) *Logger {
+	cfg := Cfg
+	if len(cfgs) > 0 && cfgs[0] != nil {
+		cfg = cfgs[0]
+	}
+	logger := NewLogger(cfg)
+	SetDefaultLogger(logger)
+	return logger
+}
+
+func SetDefaultLogger(logger *Logger) {
+	defaultLoggerMu.Lock()
+	defer defaultLoggerMu.Unlock()
+	defaultLogger = logger
+}
+
+func getDefaultLogger() *Logger {
+	defaultLoggerMu.RLock()
+	if defaultLogger != nil {
+		logger := defaultLogger
+		defaultLoggerMu.RUnlock()
+		return logger
+	}
+	defaultLoggerMu.RUnlock()
+
+	defaultLoggerMu.Lock()
+	defer defaultLoggerMu.Unlock()
+	if defaultLogger == nil {
+		defaultLogger = NewLogger(NewClientConfig())
+	}
+	return defaultLogger
+}
+
+func (l *Logger) StdLogger() *log.Logger {
+	if l == nil {
+		return getDefaultLogger().StdLogger()
+	}
+	return l.normalLogger
 }
 
 func GetBaseLogger() *log.Logger {
-	return baseLogger
+	return getDefaultLogger().StdLogger()
 }
 
-func logLevel2Int(l string) int {
-	levels = map[int]string{
+func logLevel2Int(level string) int {
+	lvl := _Info
+	levels := map[int]string{
 		_Debug: "Debug",
 		_Info:  "Info",
 		_Warn:  "Warn",
 		_Error: "Error",
 		_Fatal: "Fatal",
 	}
-	lvl := _Info
 	for k, v := range levels {
-		if strings.EqualFold(strings.ToLower(l), strings.ToLower(v)) {
+		if strings.EqualFold(strings.ToLower(level), strings.ToLower(v)) {
 			lvl = k
 		}
 	}
 	return lvl
 }
 
-func output(l int, s ...interface{}) {
-	lvl := fmt.Sprintf("[%s] ", levels[l])
-	_ = baseLogger.Output(3, lvl+fmt.Sprintln(s...))
+func (l *Logger) output(level int, s ...interface{}) {
+	if l == nil {
+		getDefaultLogger().output(level, s...)
+		return
+	}
+	prefix := fmt.Sprintf("[%s] ", l.levels[level])
+	line := prefix + fmt.Sprintln(s...)
+	target := l.normalLogger
+	if level == _Debug {
+		target = l.debugLogger
+	}
+	_ = target.Output(3, line)
+}
+
+func (l *Logger) Debug(v ...interface{}) {
+	level := _Debug
+	if l == nil {
+		getDefaultLogger().Debug(v...)
+		return
+	}
+	if l.baseLevel > level {
+		return
+	}
+	l.output(level, v...)
+}
+
+func (l *Logger) Info(v ...interface{}) {
+	level := _Info
+	if l == nil {
+		getDefaultLogger().Info(v...)
+		return
+	}
+	if l.baseLevel > level {
+		return
+	}
+	l.output(level, v...)
+}
+
+func (l *Logger) Warn(v ...interface{}) {
+	level := _Warn
+	if l == nil {
+		getDefaultLogger().Warn(v...)
+		return
+	}
+	if l.baseLevel > level {
+		return
+	}
+	l.output(level, v...)
+}
+
+func (l *Logger) Error(v ...interface{}) {
+	level := _Error
+	if l == nil {
+		getDefaultLogger().Error(v...)
+		return
+	}
+	if l.baseLevel > level {
+		return
+	}
+	l.output(level, v...)
+}
+
+func (l *Logger) Fatal(v ...interface{}) {
+	level := _Fatal
+	if l == nil {
+		getDefaultLogger().Fatal(v...)
+		return
+	}
+	if l.baseLevel > level {
+		return
+	}
+	l.output(level, v...)
+	os.Exit(1)
 }
 
 func Debug(v ...interface{}) {
-	l := _Debug
-	if baseLevel > l {
-		return
-	}
-	output(l, v...)
+	getDefaultLogger().Debug(v...)
 }
 
 func Info(v ...interface{}) {
-	l := _Info
-	if baseLevel > l {
-		return
-	}
-	output(l, v...)
+	getDefaultLogger().Info(v...)
 }
 
 func Warn(v ...interface{}) {
-	l := _Warn
-	if baseLevel > l {
-		return
-	}
-	output(l, v...)
+	getDefaultLogger().Warn(v...)
 }
 
 func Error(v ...interface{}) {
-	l := _Error
-	if baseLevel > l {
-		return
-	}
-	output(l, v...)
+	getDefaultLogger().Error(v...)
 }
 
 func Fatal(v ...interface{}) {
-	l := _Fatal
-	if baseLevel > l {
-		return
-	}
-	output(l, v...)
-	os.Exit(1)
+	getDefaultLogger().Fatal(v...)
 }

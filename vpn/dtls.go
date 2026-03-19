@@ -13,7 +13,7 @@ import (
 	"sslcon/session"
 )
 
-// 新建 dtls.Conn
+// dtlsChannel creates a new DTLS connection.
 func dtlsChannel(cSess *session.ConnSession) {
 	var (
 		conn          *dtls.Conn
@@ -66,20 +66,20 @@ func dtlsChannel(cSess *session.ConnSession) {
 	// https://github.com/pion/dtls/pull/649
 	if err != nil {
 		base.Error(err)
-		close(cSess.DtlsSetupChan) // 没有成功建立 DTLS 隧道
+		close(cSess.DtlsSetupChan) // DTLS tunnel setup failed.
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	if err = conn.HandshakeContext(ctx); err != nil {
 		base.Error(err)
-		close(cSess.DtlsSetupChan) // 没有成功建立 DTLS 隧道
+		close(cSess.DtlsSetupChan) // DTLS tunnel setup failed.
 		return
 	}
 
 	cSess.DtlsConnected.Store(true)
 	dSess = cSess.DSess
-	close(cSess.DtlsSetupChan) // 成功建立 DTLS 隧道
+	close(cSess.DtlsSetupChan) // DTLS tunnel setup succeeded.
 
 	// rewrite cSess.DTLSCipherSuite
 	state, success := conn.ConnectionState()
@@ -94,16 +94,17 @@ func dtlsChannel(cSess *session.ConnSession) {
 	go payloadOutDTLSToServer(conn, dSess, cSess)
 
 	// Step 21 serverToPayloadIn
-	// 读取服务器返回的数据，调整格式，放入 cSess.PayloadIn，不再用子协程是为了能够退出 dtlsChannel 协程
+	// Read server packets, normalize their format, and push them into cSess.PayloadIn.
+	// This stays inline instead of using a child goroutine so dtlsChannel can exit cleanly.
 	for {
-		// 重置超时限制
+		// Refresh the read deadline.
 		if cSess.ResetDTLSReadDead.Load() {
 			_ = conn.SetReadDeadline(time.Now().Add(dead))
 			cSess.ResetDTLSReadDead.Store(false)
 		}
 
-		pl := getPayloadBuffer()                // 从池子申请一块内存，存放去除头部的数据包到 PayloadIn，在 payloadInToTun 中释放
-		bytesReceived, err = conn.Read(pl.Data) // 服务器没有数据返回时，会阻塞
+		pl := getPayloadBuffer()                // Take a buffer from the pool; payloadInToTun returns it later.
+		bytesReceived, err = conn.Read(pl.Data) // Blocks while the server has no data.
 		if err != nil {
 			base.Error("dtls server to payloadIn error:", err)
 			return
@@ -111,7 +112,7 @@ func dtlsChannel(cSess *session.ConnSession) {
 
 		// base.Debug("dtls server to payloadIn")
 		// https://datatracker.ietf.org/doc/html/draft-mavrogiannopoulos-openconnect-02#section-2.3
-		// UDP 数据包的头部只有 1 字节
+		// UDP packets use a one-byte header.
 		switch pl.Data[0] {
 		case 0x07: // KEEPALIVE
 			// base.Debug("dtls receive KEEPALIVE")
@@ -162,16 +163,15 @@ func payloadOutDTLSToServer(conn *dtls.Conn, dSess *session.DtlsSession, cSess *
 
 		// base.Debug("dtls payloadOut to server")
 		if pl.Type == 0x00 {
-			// 获取数据长度
+			// Extend to make room for the DTLS header byte.
 			l := len(pl.Data)
-			// 先扩容 +1
 			pl.Data = pl.Data[:l+1]
-			// 数据后移
+			// Shift the payload one byte to the right.
 			copy(pl.Data[1:], pl.Data)
-			// 添加头信息
+			// Prefix the payload type.
 			pl.Data[0] = pl.Type
 		} else {
-			// 设置头类型
+			// Header-only control packet.
 			pl.Data = append(pl.Data[:0], pl.Type)
 		}
 
@@ -182,7 +182,7 @@ func payloadOutDTLSToServer(conn *dtls.Conn, dSess *session.DtlsSession, cSess *
 		}
 		cSess.Stat.BytesSent += uint64(bytesSent)
 
-		// 释放由 tunToPayloadOut 申请的内存
+		// Return the buffer allocated by tunToPayloadOut.
 		putPayloadBuffer(pl)
 	}
 }
