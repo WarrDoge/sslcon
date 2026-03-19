@@ -3,12 +3,12 @@ package rpc
 import (
 	"strings"
 
-	"sslcon/auth"
-	"sslcon/base"
-	"sslcon/lib"
-	"sslcon/session"
-	"sslcon/utils/vpnc"
-	"sslcon/vpn"
+	"github.com/WarrDoge/sslcon/auth"
+	"github.com/WarrDoge/sslcon/base"
+	"github.com/WarrDoge/sslcon/lib"
+	"github.com/WarrDoge/sslcon/session"
+	"github.com/WarrDoge/sslcon/utils/vpnc"
+	"github.com/WarrDoge/sslcon/vpn"
 )
 
 func activateContext(ctx *lib.VPNContext) {

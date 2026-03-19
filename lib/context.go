@@ -5,8 +5,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 
-	"sslcon/base"
-	"sslcon/session"
+	"github.com/WarrDoge/sslcon/base"
+	"github.com/WarrDoge/sslcon/session"
 )
 
 type Profile struct {

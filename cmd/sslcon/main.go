@@ -2,7 +2,7 @@
 
 package main
 
-import "sslcon/cmd"
+import "github.com/WarrDoge/sslcon/cmd"
 
 func main() {
 	cmd.Execute()

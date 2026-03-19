@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/pion/dtls/v3"
-	"sslcon/base"
-	"sslcon/proto"
-	"sslcon/session"
+	"github.com/WarrDoge/sslcon/base"
+	"github.com/WarrDoge/sslcon/proto"
+	"github.com/WarrDoge/sslcon/session"
 )
 
 // dtlsChannel creates a new DTLS connection.

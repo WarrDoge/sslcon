@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"strings"
 
-	"sslcon/base"
-	"sslcon/lib"
+	"github.com/WarrDoge/sslcon/base"
+	"github.com/WarrDoge/sslcon/lib"
 )
 
 var (

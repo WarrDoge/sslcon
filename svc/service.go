@@ -5,8 +5,8 @@ import (
 	"runtime"
 
 	"github.com/kardianos/service"
-	"sslcon/base"
-	"sslcon/rpc"
+	"github.com/WarrDoge/sslcon/base"
+	"github.com/WarrDoge/sslcon/rpc"
 )
 
 type program struct{}

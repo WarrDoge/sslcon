@@ -10,9 +10,9 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/sourcegraph/jsonrpc2"
 	ws "github.com/sourcegraph/jsonrpc2/websocket"
-	"sslcon/auth"
-	"sslcon/base"
-	"sslcon/session"
+	"github.com/WarrDoge/sslcon/auth"
+	"github.com/WarrDoge/sslcon/base"
+	"github.com/WarrDoge/sslcon/session"
 )
 
 const (

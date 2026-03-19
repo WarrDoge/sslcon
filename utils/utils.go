@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"github.com/pion/dtls/v3/pkg/protocol"
-	"sslcon/base"
-	"sslcon/utils/waterutil"
+	"github.com/WarrDoge/sslcon/base"
+	"github.com/WarrDoge/sslcon/utils/waterutil"
 )
 
 func InArray(arr []string, str string) bool {

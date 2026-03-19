@@ -8,7 +8,7 @@ import (
 	"github.com/apieasy/gson"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh/terminal"
-	"sslcon/rpc"
+	"github.com/WarrDoge/sslcon/rpc"
 )
 
 var (

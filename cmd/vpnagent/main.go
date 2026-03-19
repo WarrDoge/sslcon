@@ -9,9 +9,9 @@ import (
 	"syscall"
 
 	"github.com/kardianos/service"
-	"sslcon/base"
-	"sslcon/rpc"
-	"sslcon/svc"
+	"github.com/WarrDoge/sslcon/base"
+	"github.com/WarrDoge/sslcon/rpc"
+	"github.com/WarrDoge/sslcon/svc"
 )
 
 func main() {

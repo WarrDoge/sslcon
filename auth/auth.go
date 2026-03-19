@@ -16,11 +16,11 @@ import (
 	"text/template"
 	"time"
 
-	"sslcon/base"
-	"sslcon/lib"
-	"sslcon/proto"
-	"sslcon/session"
-	"sslcon/utils"
+	"github.com/WarrDoge/sslcon/base"
+	"github.com/WarrDoge/sslcon/lib"
+	"github.com/WarrDoge/sslcon/proto"
+	"github.com/WarrDoge/sslcon/session"
+	"github.com/WarrDoge/sslcon/utils"
 )
 
 var (

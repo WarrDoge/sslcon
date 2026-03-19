@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"time"
 
-	"sslcon/base"
-	"sslcon/proto"
-	"sslcon/session"
+	"github.com/WarrDoge/sslcon/base"
+	"github.com/WarrDoge/sslcon/proto"
+	"github.com/WarrDoge/sslcon/session"
 )
 
 // Reuse the existing tls.Conn and its corresponding bufio.Reader.

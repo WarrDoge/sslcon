@@ -5,12 +5,12 @@ import (
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
-	"sslcon/base"
-	"sslcon/proto"
-	"sslcon/session"
-	"sslcon/tun"
-	"sslcon/utils"
-	"sslcon/utils/vpnc"
+	"github.com/WarrDoge/sslcon/base"
+	"github.com/WarrDoge/sslcon/proto"
+	"github.com/WarrDoge/sslcon/session"
+	"github.com/WarrDoge/sslcon/tun"
+	"github.com/WarrDoge/sslcon/utils"
+	"github.com/WarrDoge/sslcon/utils/vpnc"
 )
 
 var offset = 0 // reserve space for header

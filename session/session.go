@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
-	"sslcon/base"
-	"sslcon/proto"
-	"sslcon/utils"
+	"github.com/WarrDoge/sslcon/base"
+	"github.com/WarrDoge/sslcon/proto"
+	"github.com/WarrDoge/sslcon/utils"
 )
 
 var (

@@ -5,7 +5,7 @@ import (
 	"net"
 	"strings"
 
-	"sslcon/utils"
+	"github.com/WarrDoge/sslcon/utils"
 )
 
 func NormalizeDNSDomains(domains []string) []string {

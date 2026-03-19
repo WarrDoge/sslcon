@@ -8,11 +8,11 @@ import (
 	"net/http"
 	"strings"
 
-	"sslcon/auth"
-	"sslcon/base"
-	"sslcon/session"
-	"sslcon/utils"
-	"sslcon/utils/vpnc"
+	"github.com/WarrDoge/sslcon/auth"
+	"github.com/WarrDoge/sslcon/base"
+	"github.com/WarrDoge/sslcon/session"
+	"github.com/WarrDoge/sslcon/utils"
+	"github.com/WarrDoge/sslcon/utils/vpnc"
 )
 
 var (

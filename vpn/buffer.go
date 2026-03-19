@@ -3,7 +3,7 @@ package vpn
 import (
 	"sync"
 
-	"sslcon/proto"
+	"github.com/WarrDoge/sslcon/proto"
 )
 
 const BufferSize = 2048

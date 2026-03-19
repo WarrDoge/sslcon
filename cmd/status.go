@@ -6,7 +6,7 @@ import (
 
 	"github.com/apieasy/gson"
 	"github.com/spf13/cobra"
-	"sslcon/rpc"
+	"github.com/WarrDoge/sslcon/rpc"
 )
 
 var status = &cobra.Command{

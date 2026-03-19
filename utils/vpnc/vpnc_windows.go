@@ -9,10 +9,10 @@ import (
 
 	"golang.org/x/sys/windows"
 	"golang.zx2c4.com/wireguard/windows/tunnel/winipcfg"
-	"sslcon/base"
-	"sslcon/session"
-	"sslcon/tun"
-	"sslcon/utils"
+	"github.com/WarrDoge/sslcon/base"
+	"github.com/WarrDoge/sslcon/session"
+	"github.com/WarrDoge/sslcon/tun"
+	"github.com/WarrDoge/sslcon/utils"
 )
 
 var (

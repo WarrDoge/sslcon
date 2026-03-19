@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	"github.com/jackpal/gateway"
-	"sslcon/base"
-	"sslcon/session"
-	"sslcon/utils"
+	"github.com/WarrDoge/sslcon/base"
+	"github.com/WarrDoge/sslcon/session"
+	"github.com/WarrDoge/sslcon/utils"
 )
 
 var VPNAddress string

@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/vishvananda/netlink"
-	"sslcon/base"
-	"sslcon/session"
-	"sslcon/utils"
+	"github.com/WarrDoge/sslcon/base"
+	"github.com/WarrDoge/sslcon/session"
+	"github.com/WarrDoge/sslcon/utils"
 )
 
 var (
